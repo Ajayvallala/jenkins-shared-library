@@ -49,22 +49,15 @@ def call(){
     }
 }
 
-def demo(){
+def demo() {
     pipeline {
-        agent {
-            label 'AGENT-1'
-        }
-        environment{
-            COURSE='Jenkins'
-        }
-        stages{
-            stage('Build'){
-                steps{
-                    script {
-                    echo "Learning ${COURSE}"
-                    }
+        agent any
+        stages {
+            stage('Demo Stage') {
+                steps {
+                    echo "Running demo from shared library"
                 }
-            }  
+            }
         }
     }
 }
