@@ -5,7 +5,6 @@ def call(){
         }
         environment{
             COURSE='Jenkins'
-            project = configmap.get('project')
         }
         options{
         //  timeout(time:10, unit:'SECONDS')
