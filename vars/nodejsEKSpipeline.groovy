@@ -1,0 +1,134 @@
+def call(){
+    pipeline{
+        agent{
+            label 'AGENT-1'
+        }
+        environment{
+            appVersion = ''
+        }
+        parameters{
+            booleanParam(name: 'deploy', defaultValue: false, description: 'Toggle this value to Deploy')
+        }
+
+        stages{
+            stage('Read package.json'){
+                steps{
+                    script {
+                        def packageJSON = readJSON file: 'package.json'
+                        appVersion = packageJSON.version
+                        echo "appVersion:${appVersion}"
+                    }
+                }
+            }
+            stage('Install Dependencies'){
+                steps {
+                    script {
+                        sh """
+                        npm install
+                        """
+                    }
+                }
+            }
+            /* stage('sonar scan'){
+                environment{
+                    ScannerHome = tool 'sonar-7.2'
+                }
+                steps{
+                    script{
+                    withSonarQubeEnv(installationName: 'sonar-7.2'){
+                    sh "${ScannerHome}/bin/sonar-scanner"
+                    }
+                    }
+                    
+                }
+            }
+            stage("Quality Gate") {
+            steps {
+            timeout(time: 5, unit: 'MINUTES') {
+                waitForQualityGate abortPipeline: true
+                }
+            }
+            } */
+            /* stage('Check Dependabot Alerts') {
+                environment { 
+                    GITHUB_TOKEN = credentials('github-token')
+                }
+                steps {
+                    script {
+                        // Fetch alerts from GitHub
+                        def response = sh(
+                            script: """
+                                curl -s -H "Accept: application/vnd.github+json" \
+                                    -H "Authorization: token ${GITHUB_TOKEN}" \
+                                    https://api.github.com/repos/Ajayvallala/catalogue/dependabot/alerts
+                            """,
+                            returnStdout: true
+                        ).trim()
+
+                        // Parse JSON
+                        def json = readJSON text: response
+
+                        // Filter alerts by severity
+                        def criticalOrHigh = json.findAll { alert ->
+                            def severity = alert?.security_advisory?.severity?.toLowerCase()
+                            def state = alert?.state?.toLowerCase()
+                            return (state == "open" && (severity == "critical" || severity == "high"))
+                        }
+
+                        if (criticalOrHigh.size() > 0) {
+                            error "❌ Found ${criticalOrHigh.size()} HIGH/CRITICAL Dependabot alerts. Failing pipeline!"
+                        } else {
+                            echo "✅ No HIGH/CRITICAL Dependabot alerts found."
+                        }
+                    }
+                }
+            } */
+            stage('Docker Build'){
+                steps{
+                    script{
+                        withAWS(credentials: 'aws-creds', region: 'us-east-1'){
+                        sh """
+                        aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 448049818055.dkr.ecr.us-east-1.amazonaws.com
+
+                        docker build -t 448049818055.dkr.ecr.us-east-1.amazonaws.com/roboshop/catalogue:${appVersion} .
+
+                        docker push 448049818055.dkr.ecr.us-east-1.amazonaws.com/roboshop/catalogue:${appVersion}
+                        """    
+                    }
+                    }
+                }
+            }
+            stage('Trigger CD'){
+                when{
+                    expression { params.deploy }
+                }
+                steps {
+                    script {
+                        build job: 'catalogue-cd',
+                        parameters: [
+                            string(name: 'appVersion', value: "${appVersion}"),
+                            string(name: 'deploy_to', value: "${params.deploy}")
+                        ],
+                        propagate: false,  // even SG fails VPC will not be effected
+                        wait: false // VPC will not wait for SG pipeline completion
+                    }
+                }
+            } 
+            
+        }
+
+        post{
+        always {
+            echo "Pipeline exection completed"
+            deleteDir()
+        }
+        success{
+            echo "Success"
+        }
+        failure{
+            echo "Failure"
+        }
+      }
+   }
+
+}
