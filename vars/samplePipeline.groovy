@@ -21,6 +21,7 @@ def call(){
                     echo 'Building'  
                     echo "Hello ${params.PERSON}"
                     echo "Biography: ${params.BIOGRAPHY}"
+                    demo()
                     } 
                 }
             }
@@ -50,14 +51,5 @@ def call(){
 }
 
 def demo() {
-    pipeline {
-        agent any
-        stages {
-            stage('Demo Stage') {
-                steps {
-                    echo "Running demo from shared library"
-                }
-            }
-        }
-    }
+   echo "Running demo from shared library"
 }
