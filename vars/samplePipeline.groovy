@@ -45,7 +45,6 @@ def call(){
         post {
             always{
                 echo 'I will say hello always'
-                deleteDir()
             }
             success{
                 echo 'I will say hello when success'
@@ -53,6 +52,30 @@ def call(){
             failure{
                 echo 'I will say hello when failure'  
             }
+        }
+    }
+}
+
+def demo(){
+    pipeline {
+        agent {
+            label 'AGENT-1'
+        }
+        environment{
+            COURSE='Jenkins'
+        }
+        options{
+        //  timeout(time:10, unit:'SECONDS')
+            disableConcurrentBuilds()
+        }
+        stages{
+            stage('Build'){
+                steps{
+                    script {
+                    echo 'Building'  
+                    }
+                }
+            }  
         }
     }
 }
