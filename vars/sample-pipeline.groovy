@@ -1,10 +1,11 @@
-def call(){
+def call(Map configmap){
     pipeline {
         agent {
             label 'AGENT-1'
         }
         environment{
             COURSE='Jenkins'
+            project = configmap.get('project')
         }
         options{
         //  timeout(time:10, unit:'SECONDS')
