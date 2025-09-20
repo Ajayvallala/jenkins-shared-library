@@ -102,7 +102,7 @@ def call(Map configmap){
                     }
                 }
             }
-            stage('Check Scan Results') {
+            /*stage('Check Scan Results') {
                 steps {
                     script {
                         withAWS(credentials: 'aws-creds', region: 'us-east-1') {
@@ -135,14 +135,15 @@ def call(Map configmap){
                         }
                     }
                 }
-            } 
+            }*/
             stage('Trigger CD'){
                 when{
                     expression { params.deploy }
                 }
                 steps {
                     script {
-                        build job: "${COMPONENT}-cd",
+                        //build job: "${COMPONENT}-cd",
+                        build job: "../${COMPONENT}-cd",
                         parameters: [
                             string(name: 'appVersion', value: "${appVersion}"),
                             string(name: 'deploy_to', value: 'dev')
