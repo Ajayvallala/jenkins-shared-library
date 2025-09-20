@@ -5,6 +5,10 @@ def call(){
         }
         environment{
             appVersion = ''
+            REGION= 'us-east-1'
+            PROJECT= configmap.get('project')
+            COMPONENT= configmap.get('component')
+            ACCOUNTNO= '448049818055'
         }
         parameters{
             booleanParam(name: 'deploy', defaultValue: false, description: 'Toggle this value to Deploy')
@@ -60,7 +64,7 @@ def call(){
                             script: """
                                 curl -s -H "Accept: application/vnd.github+json" \
                                     -H "Authorization: token ${GITHUB_TOKEN}" \
-                                    https://api.github.com/repos/Ajayvallala/catalogue/dependabot/alerts
+                                    https://api.github.com/repos/Ajayvallala/${COMPONENT}/dependabot/alerts
                             """,
                             returnStdout: true
                         ).trim()
@@ -86,13 +90,13 @@ def call(){
             stage('Docker Build'){
                 steps{
                     script{
-                        withAWS(credentials: 'aws-creds', region: 'us-east-1'){
+                        withAWS(credentials: 'aws-creds', region: "${REGION}"){
                         sh """
-                        aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 448049818055.dkr.ecr.us-east-1.amazonaws.com
+                        aws ecr get-login-password --region ${REGION} | docker login --username AWS --password-stdin ${ACCOUNTNO}.dkr.ecr.${REGION}.amazonaws.com
 
-                        docker build -t 448049818055.dkr.ecr.us-east-1.amazonaws.com/roboshop/catalogue:${appVersion} .
+                        docker build -t ${ACCOUNTNO}.dkr.ecr.${REGION}.amazonaws.com/${PROJECT}/${COMPONENT}:${appVersion} .
 
-                        docker push 448049818055.dkr.ecr.us-east-1.amazonaws.com/roboshop/catalogue:${appVersion}
+                        docker push ${ACCOUNTNO}.dkr.ecr.${REGION}.amazonaws.com/${PROJECT}/${COMPONENT}:${appVersion}
                         """    
                     }
                     }
@@ -104,10 +108,10 @@ def call(){
                 }
                 steps {
                     script {
-                        build job: 'catalogue-cd',
+                        build job: "${COMPONENT}-cd",
                         parameters: [
                             string(name: 'appVersion', value: "${appVersion}"),
-                            string(name: 'deploy_to', value: "${params.deploy}")
+                            string(name: 'deploy_to', value: 'dev')
                         ],
                         propagate: false,  // even SG fails VPC will not be effected
                         wait: false // VPC will not wait for SG pipeline completion
