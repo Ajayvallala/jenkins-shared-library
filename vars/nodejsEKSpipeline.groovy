@@ -102,13 +102,6 @@ def call(Map configmap){
                     }
                 }
             }
-            stage('Scan Image '){
-                steps{
-                    script{
-
-                    }
-                }
-            }
             stage('Check Scan Results') {
                 steps {
                     script {
