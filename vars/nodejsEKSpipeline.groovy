@@ -1,4 +1,4 @@
-def call(){
+def call(Map configmap){
     pipeline{
         agent{
             label 'AGENT-1'
