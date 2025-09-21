@@ -97,13 +97,14 @@ def call(Map configmap){
                         docker build -t ${ACCOUNTNO}.dkr.ecr.${REGION}.amazonaws.com/${PROJECT}/${COMPONENT}:${appVersion} .
 
                         docker push ${ACCOUNTNO}.dkr.ecr.${REGION}.amazonaws.com/${PROJECT}/${COMPONENT}:${appVersion}
-                        // aws ecr wait image-scan-complete --repository-name ${PROJECT}/${COMPONENT} --image-id imageTag=${appVersion}
+                        
                         """    
                     }
                     }
                 }
             }
             /*stage('Check Scan Results') {
+             aws ecr wait image-scan-complete --repository-name ${PROJECT}/${COMPONENT} --image-id imageTag=${appVersion}
                 steps {
                     script {
                         withAWS(credentials: 'aws-creds', region: 'us-east-1') {
