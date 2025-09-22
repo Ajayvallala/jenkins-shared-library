@@ -27,7 +27,7 @@ def call(Map configmap){
                 steps {
                     script {
                         sh """
-                        pip install -r requirments.txt
+                        pip install -r requirements.txt
                         """
                     }
                 }
