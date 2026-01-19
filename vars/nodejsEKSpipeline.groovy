@@ -1,23 +1,22 @@
-def call(Map configmap){
-    pipeline{
-        agent{
+def call(Map configMap){
+    pipeline {
+        agent {
             label 'AGENT-1'
         }
-        environment{
-            appVersion = ''
-            REGION= 'us-east-1'
-            PROJECT= configmap.get('project')
-            COMPONENT= configmap.get('component')
-            ACCOUNTNO= '448049818055'
+        environment {
+            appVersion=''
+            COMPONENT=configMap.get('component')
+            AWS_ACCOUNT_ID = "448049818055"
+            PROJECT=configMap.get('project')
+            REGION="us-east-1"
         }
         parameters{
-            booleanParam(name: 'deploy', defaultValue: false, description: 'Toggle this value to Deploy')
+            booleanParam(name: 'Deploy', defaultValue: false, description: 'Toggle this value to deply in DEV envirnoment')
         }
-
         stages{
-            stage('Read package.json'){
+            stage('Read Package.json'){
                 steps{
-                    script {
+                    script{
                         def packageJSON = readJSON file: 'package.json'
                         appVersion = packageJSON.version
                         echo "appVersion:${appVersion}"
@@ -25,37 +24,48 @@ def call(Map configmap){
                 }
             }
             stage('Install Dependencies'){
-                steps {
-                    script {
+                steps{
+                    script{
                         sh """
                         npm install
                         """
                     }
                 }
             }
-            /* stage('sonar scan'){
-                environment{
-                    ScannerHome = tool 'sonar-7.2'
+            stage('Unit Testing '){
+                steps{
+                    script{
+                        sh """
+                        echo "Unit testing started"
+                        """
+                    }
+                }
+            }
+            stage('sonar-scan'){
+                environment {
+                    ScannerHome = tool 'sonar-scanner'
                 }
                 steps{
                     script{
-                    withSonarQubeEnv(installationName: 'sonar-7.2'){
-                    sh "${ScannerHome}/bin/sonar-scanner"
+                        withSonarQubeEnv(installationName: 'sonar-server'){
+                            sh "${ScannerHome}/bin/sonar-scanner"
+                        }
+
                     }
-                    }
-                    
                 }
             }
-            stage("Quality Gate") {
-            steps {
-            timeout(time: 5, unit: 'MINUTES') {
-                waitForQualityGate abortPipeline: true
+
+            stage('Quality Gates'){
+                steps{
+                    timeout(time: 1, unit: 'HOURS'){
+                        waitForQualityGate abortPipeline: true
+                    }          
                 }
             }
-            } */
-            /* stage('Check Dependabot Alerts') {
+
+            stage('Check Dependabot Alerts') {
                 environment { 
-                    GITHUB_TOKEN = credentials('github-token')
+                    GITHUB_TOKEN = credentials('git-token')
                 }
                 steps {
                     script {
@@ -64,7 +74,7 @@ def call(Map configmap){
                             script: """
                                 curl -s -H "Accept: application/vnd.github+json" \
                                     -H "Authorization: token ${GITHUB_TOKEN}" \
-                                    https://api.github.com/repos/Ajayvallala/${COMPONENT}/dependabot/alerts
+                                    https://api.github.com/repos/Ajayvallala/{COMPONENT}/dependabot/alerts
                             """,
                             returnStdout: true
                         ).trim()
@@ -86,90 +96,90 @@ def call(Map configmap){
                         }
                     }
                 }
-            } */
-            stage('Docker Build'){
-                steps{
-                    script{
-                        withAWS(credentials: 'aws-creds', region: "${REGION}"){
-                        sh """
-                        aws ecr get-login-password --region ${REGION} | docker login --username AWS --password-stdin ${ACCOUNTNO}.dkr.ecr.${REGION}.amazonaws.com
+            }
 
-                        docker build -t ${ACCOUNTNO}.dkr.ecr.${REGION}.amazonaws.com/${PROJECT}/${COMPONENT}:${appVersion} .
+            stage('Docker Image Build'){
+                    steps{
+                        script{
+                        withAWS(credentials:'aws-creds', region: 'us-east-1'){
+                            sh """
+                            aws ecr get-login-password --region ${REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com
 
-                        docker push ${ACCOUNTNO}.dkr.ecr.${REGION}.amazonaws.com/${PROJECT}/${COMPONENT}:${appVersion}
-                        
-                        """    
+                            docker build -t ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/${PROJECT}/${COMPONENT}:${appVersion} .
+
+                            docker push ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/${PROJECT}/${COMPONENT}:${appVersion}
+                            """
                     }
                     }
                 }
             }
-            /*stage('Check Scan Results') {
-             aws ecr wait image-scan-complete --repository-name ${PROJECT}/${COMPONENT} --image-id imageTag=${appVersion}
-                steps {
-                    script {
-                        withAWS(credentials: 'aws-creds', region: 'us-east-1') {
-                        // Fetch scan findings
-                            def findings = sh(
-                                script: """
-                                    aws ecr describe-image-scan-findings \
-                                    --repository-name ${PROJECT}/${COMPONENT} \
-                                    --image-id imageTag=${appVersion} \
-                                    --region ${REGION} \
-                                    --output json
-                                """,
-                                returnStdout: true
-                            ).trim()
+        /*  stage('Check Scan Results') {
+                    steps {
+                        script {
+                            withAWS(credentials: 'aws-creds', region: 'us-east-1') {
+                            // Fetch scan findings
+                                def findings = sh(
+                                    script: """
+                                        aws ecr describe-image-scan-findings \
+                                        --repository-name ${PROJECT}/${COMPONENT} \
+                                        --image-id imageTag=${appVersion} \
+                                        --region ${REGION} \
+                                        --output json
+                                    """,
+                                    returnStdout: true
+                                ).trim()
 
-                            // Parse JSON
-                            def json = readJSON text: findings
+                                // Parse JSON
+                                def json = readJSON text: findings
 
-                            def highCritical = json.imageScanFindings.findings.findAll {
-                                it.severity == "HIGH" || it.severity == "CRITICAL"
-                            }
+                                def highCritical = json.imageScanFindings.findings.findAll {
+                                    it.severity == "HIGH" || it.severity == "CRITICAL"
+                                }
 
-                            if (highCritical.size() > 0) {
-                                echo "❌ Found ${highCritical.size()} HIGH/CRITICAL vulnerabilities!"
-                                currentBuild.result = 'FAILURE'
-                                error("Build failed due to vulnerabilities")
-                            } else {
-                                echo "✅ No HIGH/CRITICAL vulnerabilities found."
+                                if (highCritical.size() > 0) {
+                                    echo "❌ Found ${highCritical.size()} HIGH/CRITICAL vulnerabilities!"
+                                    currentBuild.result = 'FAILURE'
+                                    error("Build failed due to vulnerabilities")
+                                } else {
+                                    echo "✅ No HIGH/CRITICAL vulnerabilities found."
+                                }
                             }
                         }
                     }
                 }
-            }*/
-            stage('Trigger CD'){
+            } */
+            stage('trigger deploy'){
                 when{
                     expression { params.deploy }
                 }
-                steps {
-                    script {
-                        //build job: "${COMPONENT}-cd",
-                        build job: "../${COMPONENT}-cd",
-                        parameters: [
+                steps{
+                    script{
+                        build job: '{COMPONENT}-cd'
+                        parameters[
                             string(name: 'appVersion', value: "${appVersion}"),
                             string(name: 'deploy_to', value: 'dev')
-                        ],
-                        propagate: false,  // even SG fails VPC will not be effected
-                        wait: false // VPC will not wait for SG pipeline completion
+                        ]
+                        propagate: false
+                        wait: false
                     }
                 }
-            } 
-            
+            }
+
+
+        }
+        post {
+            always{
+                deleteDir()
+            }
+            success{
+                echo "Build has been success"
+            }
+            failure{
+                error "Build has been failed"
+            }
         }
 
-        post{
-        always {
-            echo "Pipeline exection completed"
-            deleteDir()
-        }
-        success{
-            echo "Success"
-        }
-        failure{
-            echo "Failure"
-        }
-      }
-   }
 
+
+    }
 }
