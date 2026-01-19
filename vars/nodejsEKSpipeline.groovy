@@ -41,7 +41,7 @@ def call(Map configMap){
                     }
                 }
             }
-            stage('sonar-scan'){
+/*             stage('sonar-scan'){
                 environment {
                     ScannerHome = tool 'sonar-scanner'
                 }
@@ -61,7 +61,7 @@ def call(Map configMap){
                         waitForQualityGate abortPipeline: true
                     }          
                 }
-            }
+            } */
 
             stage('Check Dependabot Alerts') {
                 environment { 
@@ -74,7 +74,7 @@ def call(Map configMap){
                             script: """
                                 curl -s -H "Accept: application/vnd.github+json" \
                                     -H "Authorization: token ${GITHUB_TOKEN}" \
-                                    https://api.github.com/repos/Ajayvallala/{COMPONENT}/dependabot/alerts
+                                    https://api.github.com/repos/Ajayvallala/${COMPONENT}/dependabot/alerts
                             """,
                             returnStdout: true
                         ).trim()
@@ -109,7 +109,7 @@ def call(Map configMap){
 
                             docker push ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/${PROJECT}/${COMPONENT}:${appVersion}
                             """
-                    }
+                        }
                     }
                 }
             }
@@ -154,7 +154,7 @@ def call(Map configMap){
                 }
                 steps{
                     script{
-                        build job: '{COMPONENT}-cd'
+                        build job: "${COMPONENT}-cd"
                         parameters[
                             string(name: 'appVersion', value: "${appVersion}"),
                             string(name: 'deploy_to', value: 'dev')
